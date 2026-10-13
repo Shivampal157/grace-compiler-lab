@@ -1,0 +1,24 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  llvm-pass:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install LLVM toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build llvm-18 llvm-18-dev llvm-18-tools clang-18
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DLT_LLVM_INSTALL_DIR=/usr/lib/llvm-18 \
+            -DBUILD_TESTING=OFF
+      - name: Build
+        run: cmake --build build
+      - name: Verify input IR
+        run: /usr/lib/llvm-18/bin/opt -passes=verify -disable-output inputs/kernel.ll

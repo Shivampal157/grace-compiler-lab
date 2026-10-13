@@ -1,0 +1,10 @@
+build/
+cmake-build-*/
+.cache/
+.vscode/
+.vs/
+*.user
+*.suo
+*.dll
+*.so
+*.dylib
