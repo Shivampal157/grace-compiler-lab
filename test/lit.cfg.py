@@ -2,7 +2,7 @@ import os
 import lit.formats
 
 config.name = "GraceCompilerLab"
-config.test_format = lit.formats.ShTest(True)
+config.test_format = lit.formats.ShTest()
 config.suffixes = [".ll"]
 
 if not hasattr(config, "test_source_root") or not config.test_source_root:
@@ -10,6 +10,16 @@ if not hasattr(config, "test_source_root") or not config.test_source_root:
 
 if not hasattr(config, "test_exec_root") or not config.test_exec_root:
     config.test_exec_root = config.test_source_root
+
+# Ensure LLVM tool directory is in PATH for lit execution
+llvm_bin_dir = "/usr/lib/llvm-18/bin"
+if os.path.isdir(llvm_bin_dir):
+    current_path = os.environ.get("PATH", "")
+    if llvm_bin_dir not in current_path:
+        os.environ["PATH"] = llvm_bin_dir + os.pathsep + current_path
+
+if hasattr(config, "environment"):
+    config.environment["PATH"] = os.environ.get("PATH", "")
 
 # Detect shared library directory
 shlibdir = getattr(config, "llvm_shlib_dir", "")
