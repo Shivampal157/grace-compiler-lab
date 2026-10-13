@@ -29,7 +29,10 @@ jobs:
       - name: Verify Input IRs
         run: |
           /usr/lib/llvm-18/bin/opt -passes=verify -disable-output inputs/kernel.ll
-          /usr/lib/llvm-18/bin/opt -passes=verify -disable-output test/*.ll
+          for f in test/*.ll; do
+            echo "Verifying $f..."
+            /usr/lib/llvm-18/bin/opt -passes=verify -disable-output "$f"
+          done
 
       - name: Run LIT Regression Suite
         run: |
