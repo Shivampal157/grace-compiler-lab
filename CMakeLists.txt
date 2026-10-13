@@ -23,6 +23,9 @@ add_definitions(${LLVM_DEFINITIONS})
 add_library(GraceCompilerLab MODULE
   lib/InstructionMix.cpp
 )
+target_include_directories(GraceCompilerLab PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
 target_compile_options(GraceCompilerLab PRIVATE -Wall -Wextra -Wpedantic)
 set_target_properties(GraceCompilerLab PROPERTIES PREFIX "")
 
