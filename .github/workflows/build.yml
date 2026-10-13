@@ -9,16 +9,55 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Install LLVM toolchain
+
+      - name: Install LLVM toolchain and test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build llvm-18 llvm-18-dev llvm-18-tools clang-18
-      - name: Configure
+          sudo apt-get install -y cmake ninja-build llvm-18 llvm-18-dev llvm-18-tools clang-18 python3-lit
+
+      - name: Configure CMake
         run: |
           cmake -S . -B build -G Ninja \
             -DLT_LLVM_INSTALL_DIR=/usr/lib/llvm-18 \
-            -DBUILD_TESTING=OFF
-      - name: Build
+            -DBUILD_TESTING=ON \
+            -DLLVM_OPT=/usr/lib/llvm-18/bin/opt \
+            -DLLVM_FILECHECK=/usr/lib/llvm-18/bin/FileCheck \
+            -DLLVM_LIT=/usr/lib/llvm-18/bin/llvm-lit
+
+      - name: Build Pass Plugins
         run: cmake --build build
-      - name: Verify input IR
-        run: /usr/lib/llvm-18/bin/opt -passes=verify -disable-output inputs/kernel.ll
+
+      - name: Verify Input IRs
+        run: |
+          /usr/lib/llvm-18/bin/opt -passes=verify -disable-output inputs/kernel.ll
+          /usr/lib/llvm-18/bin/opt -passes=verify -disable-output test/*.ll
+
+      - name: Run LIT Regression Suite
+        run: |
+          /usr/lib/llvm-18/bin/llvm-lit -sv test/
+
+      - name: Test Grace Neoverse Analysis Pass
+        run: |
+          /usr/lib/llvm-18/bin/opt \
+            -load-pass-plugin ./build/lib/GraceCompilerLab.so \
+            -passes=grace-neoverse-analysis \
+            -disable-output test/neoverse_analysis.ll
+
+      - name: Test HPC FMA Fusion Pass
+        run: |
+          /usr/lib/llvm-18/bin/opt \
+            -load-pass-plugin ./build/lib/GraceCompilerLab.so \
+            -passes=grace-fma-fusion \
+            -S test/fma_fusion.ll -o -
+
+      - name: Test LPDDR5X Loop Stride Pass
+        run: |
+          /usr/lib/llvm-18/bin/opt \
+            -load-pass-plugin ./build/lib/GraceCompilerLab.so \
+            -passes=grace-loop-stride \
+            -disable-output test/loop_stride.ll
+
+      - name: Run Grace Architectural Analyst CLI
+        run: |
+          python3 tools/grace_analyst.py test/neoverse_analysis.ll
+          python3 tools/grace_analyst.py inputs/kernel.ll

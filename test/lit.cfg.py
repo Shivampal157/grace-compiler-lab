@@ -1,13 +1,22 @@
-import lit.formats
-import lit.util
 import os
+import lit.formats
 
 config.name = "GraceCompilerLab"
 config.test_format = lit.formats.ShTest(True)
 config.suffixes = [".ll"]
-config.test_source_root = os.path.join("@CMAKE_CURRENT_SOURCE_DIR@", "..", "inputs")
-config.test_exec_root = os.path.join("@CMAKE_BINARY_DIR@", "test")
-config.substitutions.append(("%shlibdir", "@CMAKE_LIBRARY_OUTPUT_DIRECTORY@"))
-config.substitutions.append(("%shlibext", "@CMAKE_SHARED_LIBRARY_SUFFIX@"))
-config.substitutions.append(("opt", "@LLVM_OPT@"))
-config.substitutions.append(("FileCheck", "@LLVM_FILECHECK@"))
+
+if not hasattr(config, "test_source_root") or not config.test_source_root:
+    config.test_source_root = os.path.dirname(__file__)
+
+if not hasattr(config, "test_exec_root") or not config.test_exec_root:
+    config.test_exec_root = config.test_source_root
+
+shlibdir = getattr(config, "llvm_shlib_dir", "")
+shlibext = getattr(config, "llvm_shlib_ext", ".so")
+opt_bin = getattr(config, "opt", "opt")
+filecheck_bin = getattr(config, "filecheck", "FileCheck")
+
+config.substitutions.append(("%shlibdir", shlibdir))
+config.substitutions.append(("%shlibext", shlibext))
+config.substitutions.append(("opt", opt_bin))
+config.substitutions.append(("FileCheck", filecheck_bin))
