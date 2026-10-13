@@ -1,5 +1,5 @@
 #include "GraceNeoverseModel.h"
-
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/PassManager.h"
@@ -169,10 +169,8 @@ GraceNeoverseAnalysis::run(Function &F, FunctionAnalysisManager &) {
           ++M.ScalableVectorOps;
         else
           ++M.FixedVectorOps;
-      }
-
-      // Memory operations
-      if (isa<LoadInst>(I)) {
+        ++M.PortCounts[static_cast<unsigned>(NeoversePort::VectorFP)];
+      } else if (isa<LoadInst>(I)) {
         ++M.Loads;
         ++M.PortCounts[static_cast<unsigned>(NeoversePort::Load)];
       } else if (isa<StoreInst>(I)) {
@@ -188,29 +186,29 @@ GraceNeoverseAnalysis::run(Function &F, FunctionAnalysisManager &) {
         ++M.Calls;
         ++M.PortCounts[static_cast<unsigned>(NeoversePort::Other)];
       } else if (I.isBinaryOp()) {
-        if (Ty->isFPOrFPVectorTy()) {
+        if (Ty->isFloatingPointTy()) {
           ++M.ScalarFPOps;
           ++M.PortCounts[static_cast<unsigned>(NeoversePort::VectorFP)];
         } else {
           ++M.ScalarIntOps;
           ++M.PortCounts[static_cast<unsigned>(NeoversePort::IntALU)];
         }
-
-        // Check if this addition/subtraction could be fused with a preceding multiplication
-        if (I.getOpcode() == Instruction::FAdd || I.getOpcode() == Instruction::FSub ||
-            I.getOpcode() == Instruction::Add || I.getOpcode() == Instruction::Sub) {
-          Value *Op0 = I.getOperand(0);
-          Value *Op1 = I.getOperand(1);
-          auto isMul = [](Value *V) {
-            if (auto *Inst = dyn_cast<Instruction>(V))
-              return Inst->getOpcode() == Instruction::FMul || Inst->getOpcode() == Instruction::Mul;
-            return false;
-          };
-          if (isMul(Op0) || isMul(Op1))
-            ++M.FusedMulAddCandidates;
-        }
       } else {
         ++M.PortCounts[static_cast<unsigned>(NeoversePort::IntALU)];
+      }
+
+      // Check if this addition/subtraction could be fused with a preceding multiplication
+      if (I.getOpcode() == Instruction::FAdd || I.getOpcode() == Instruction::FSub ||
+          I.getOpcode() == Instruction::Add || I.getOpcode() == Instruction::Sub) {
+        Value *Op0 = I.getOperand(0);
+        Value *Op1 = I.getOperand(1);
+        auto isMul = [](Value *V) {
+          if (auto *Inst = dyn_cast<Instruction>(V))
+            return Inst->getOpcode() == Instruction::FMul || Inst->getOpcode() == Instruction::Mul;
+          return false;
+        };
+        if (isMul(Op0) || isMul(Op1))
+          ++M.FusedMulAddCandidates;
       }
     }
   }

@@ -13,16 +13,15 @@ jobs:
       - name: Install LLVM toolchain and test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build llvm-18 llvm-18-dev llvm-18-tools clang-18 python3-lit
+          sudo apt-get install -y cmake ninja-build llvm-18 llvm-18-dev llvm-18-tools clang-18 python3-pip
+          sudo pip install lit --break-system-packages
+          echo "/usr/lib/llvm-18/bin" >> $GITHUB_PATH
 
       - name: Configure CMake
         run: |
           cmake -S . -B build -G Ninja \
             -DLT_LLVM_INSTALL_DIR=/usr/lib/llvm-18 \
-            -DBUILD_TESTING=ON \
-            -DLLVM_OPT=/usr/lib/llvm-18/bin/opt \
-            -DLLVM_FILECHECK=/usr/lib/llvm-18/bin/FileCheck \
-            -DLLVM_LIT=/usr/lib/llvm-18/bin/llvm-lit
+            -DBUILD_TESTING=ON
 
       - name: Build Pass Plugins
         run: cmake --build build
@@ -34,7 +33,7 @@ jobs:
 
       - name: Run LIT Regression Suite
         run: |
-          /usr/lib/llvm-18/bin/llvm-lit -sv test/
+          lit -sv test/
 
       - name: Test Grace Neoverse Analysis Pass
         run: |

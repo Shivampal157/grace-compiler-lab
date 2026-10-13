@@ -20,9 +20,9 @@ PreservedAnalyses GraceArithmeticSimplifyPass::run(Function &F, FunctionAnalysis
     for (auto It = BB.begin(); It != BB.end();) {
       Instruction *I = &*It++;
       Value *X = nullptr;
-      const APInt *C = nullptr;
+      ConstantInt *CI = nullptr;
 
-      // 1. Identity additions and subtractions: x + 0 -> x, x - 0 -> x
+      // 1. Identity additions and subtractions: x + 0 -> x, x - 0 -> x, x * 1 -> x, 1 * x -> x
       if (match(I, m_Add(m_Value(X), m_Zero())) ||
           match(I, m_Sub(m_Value(X), m_Zero())) ||
           match(I, m_Mul(m_Value(X), m_One())) ||
@@ -44,7 +44,7 @@ PreservedAnalyses GraceArithmeticSimplifyPass::run(Function &F, FunctionAnalysis
       }
 
       // 3. Bitwise XOR self: x ^ x -> 0
-      if (match(I, m_Xor(m_Value(X), m_Deferred(X)))) {
+      if (I->getOpcode() == Instruction::Xor && I->getOperand(0) == I->getOperand(1)) {
         Constant *Zero = Constant::getNullValue(I->getType());
         I->replaceAllUsesWith(Zero);
         I->eraseFromParent();
@@ -80,9 +80,18 @@ PreservedAnalyses GraceArithmeticSimplifyPass::run(Function &F, FunctionAnalysis
         continue;
       }
 
-      // 7. Strength reduction: x * 2^k -> x << k
-      if (match(I, m_Mul(m_Value(X), m_APInt(C))) && C->isPowerOf2()) {
-        unsigned ShiftAmt = C->logBase2();
+      // 7. Bitwise idempotence: x & x -> x, x | x -> x
+      if ((I->getOpcode() == Instruction::And || I->getOpcode() == Instruction::Or) &&
+          I->getOperand(0) == I->getOperand(1)) {
+        I->replaceAllUsesWith(I->getOperand(0));
+        I->eraseFromParent();
+        Changed = true;
+        continue;
+      }
+
+      // 8. Strength reduction: x * 2^k -> x << k
+      if (match(I, m_Mul(m_Value(X), m_ConstantInt(CI))) && CI->getValue().isPowerOf2()) {
+        unsigned ShiftAmt = CI->getValue().logBase2();
         IRBuilder<> Builder(I);
         Value *ShiftVal = ConstantInt::get(I->getType(), ShiftAmt);
         Value *Shl = Builder.CreateShl(X, ShiftVal);
